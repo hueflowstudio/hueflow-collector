@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HUEFLOW — Reference Collector</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Mono:wght@300;400&family=Noto+Sans+KR:wght@300;400&display=swap');
+  :root { --paper:#F2EDE4; --ink:#1E1710; --rust:#9E4E2A; --gold:#A07830; --paper-dark:#E8E0D4; --ink-light:#5a4e42; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--paper); color:var(--ink); font-family:'Noto Sans KR',sans-serif; min-height:100vh; }
+  header { border-bottom:1px solid var(--ink); padding:18px 24px; display:flex; align-items:baseline; justify-content:space-between; position:sticky; top:0; background:var(--paper); z-index:100; }
+  .logo { font-family:'Cormorant Garamond',serif; font-size:20px; font-weight:300; letter-spacing:0.3em; text-transform:uppercase; }
+  .logo span { color:var(--rust); }
+  .subtitle { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.15em; color:var(--ink-light); text-transform:uppercase; }
+  .container { max-width:900px; margin:0 auto; padding:32px 20px 80px; }
+  .section-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.25em; text-transform:uppercase; color:var(--ink-light); margin-bottom:14px; display:flex; align-items:center; gap:10px; }
+  .section-label::after { content:''; flex:1; height:1px; background:var(--ink-light); opacity:0.25; }
+  .drop-zone { border:1px dashed var(--ink); padding:40px 24px; text-align:center; cursor:pointer; transition:all 0.3s; position:relative; margin-bottom:20px; }
+  .drop-zone:hover { background:var(--paper-dark); border-color:var(--rust); }
+  .drop-zone input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .drop-icon { font-size:28px; opacity:0.35; margin-bottom:10px; }
+  .drop-text { font-family:'Cormorant Garamond',serif; font-size:18px; font-weight:300; margin-bottom:6px; }
+  .drop-sub { font-family:'DM Mono',monospace; font-size:9px; color:var(--ink-light); letter-spacing:0.1em; }
+  #previewWrap { display:none; margin-bottom:20px; position:relative; }
+  #previewWrap img { width:100%; max-height:280px; object-fit:cover; display:block; filter:saturate(0.9); }
+  .preview-badge { position:absolute; top:10px; left:10px; background:var(--ink); color:var(--paper); font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.15em; padding:4px 10px; text-transform:uppercase; }
+  .remove-preview { position:absolute; top:10px; right:10px; background:var(--ink); color:var(--paper); border:none; width:28px; height:28px; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; }
+  .search-btn { width:100%; padding:16px; background:var(--ink); color:var(--paper); border:none; cursor:pointer; font-family:'DM Mono',monospace; font-size:11px; letter-spacing:0.3em; text-transform:uppercase; transition:background 0.3s; margin-bottom:40px; }
+  .search-btn:hover:not(:disabled) { background:var(--rust); }
+  .search-btn:disabled { opacity:0.35; cursor:not-allowed; }
+  .loading { display:none; text-align:center; padding:40px; }
+  .loading.active { display:block; }
+  .loading-text { font-family:'Cormorant Garamond',serif; font-size:17px; font-style:italic; color:var(--ink-light); animation:pulse 2s ease-in-out infinite; }
+  .loading-step { font-family:'DM Mono',monospace; font-size:9px; color:var(--ink-light); letter-spacing:0.15em; margin-top:10px; opacity:0.6; }
+  @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+  .result-section { display:none; animation:fadeUp 0.5s ease forwards; }
+  .result-section.active { display:block; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .mood-title { font-family:'Cormorant Garamond',serif; font-size:32px; font-weight:300; line-height:1.2; margin-bottom:6px; }
+  .mood-title em { font-style:italic; color:var(--rust); }
+  .mood-desc { font-family:'Noto Sans KR',sans-serif; font-size:13px; color:var(--ink-light); line-height:1.7; margin-bottom:20px; }
+  .keywords-row { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:24px; }
+  .kw-tag { padding:5px 14px; border:1px solid var(--ink); font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.1em; cursor:pointer; transition:all 0.2s; }
+  .kw-tag.active { background:var(--ink); color:var(--paper); }
+  .ref-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; margin-bottom:28px; }
+  .ref-item { position:relative; aspect-ratio:1; overflow:hidden; cursor:pointer; }
+  .ref-item img { width:100%; height:100%; object-fit:cover; display:block; transition:transform 0.4s; filter:saturate(0.85); }
+  .ref-item:hover img { transform:scale(1.06); filter:saturate(1); }
+  .ref-overlay { position:absolute; bottom:0; left:0; right:0; padding:8px; background:linear-gradient(transparent,rgba(30,23,16,0.7)); opacity:0; transition:opacity 0.3s; display:flex; justify-content:space-between; align-items:flex-end; }
+  .ref-item:hover .ref-overlay { opacity:1; }
+  .ref-author { font-family:'DM Mono',monospace; font-size:8px; color:rgba(242,237,228,0.8); }
+  .ref-save { background:var(--paper); color:var(--ink); border:none; width:24px; height:24px; cursor:pointer; font-size:11px; display:flex; align-items:center; justify-content:center; }
+  .ref-save.saved { background:var(--rust); color:var(--paper); }
+  .prompt-box { background:var(--ink); color:var(--paper); padding:22px 24px; margin-bottom:24px; }
+  .prompt-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.2em; color:var(--gold); text-transform:uppercase; margin-bottom:10px; }
+  .prompt-text { font-family:'DM Mono',monospace; font-size:10px; line-height:1.8; opacity:0.85; }
+  .copy-btn { margin-top:12px; padding:7px 18px; background:transparent; border:1px solid var(--gold); color:var(--gold); font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.2em; text-transform:uppercase; cursor:pointer; transition:all 0.2s; }
+  .copy-btn:hover { background:var(--gold); color:var(--ink); }
+  .reset-btn { background:transparent; border:1px solid var(--ink-light); color:var(--ink-light); padding:12px 32px; font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.2em; text-transform:uppercase; cursor:pointer; display:block; margin:0 auto; }
+  .error-box { display:none; padding:16px 20px; border:1px solid var(--rust); color:var(--rust); font-family:'DM Mono',monospace; font-size:10px; margin-bottom:20px; line-height:1.6; }
+  .error-box.active { display:block; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">HUE<span>FLOW</span></div>
+  <div class="subtitle">Auto Reference Collector</div>
+</header>
+<div class="container">
+  <div id="uploadSection">
+    <div class="section-label">01 — 씨앗 이미지 업로드</div>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept="image/*">
+      <div class="drop-icon">◻</div>
+      <div class="drop-text">레퍼런스 이미지 1장 업로드</div>
+      <div class="drop-sub">Pinterest 스크린샷 · 잡지 · 현장사진 — AI가 무드를 읽고 비슷한 이미지를 자동 수집해요</div>
+    </div>
+    <div id="previewWrap">
+      <img id="previewImg" src="" alt="preview">
+      <div class="preview-badge">Seed Image</div>
+      <button class="remove-preview" id="removePreview">✕</button>
+    </div>
+    <div class="error-box" id="errorBox"></div>
+    <button class="search-btn" id="searchBtn" disabled>◈ 이 무드로 레퍼런스 자동 수집</button>
+  </div>
+  <div class="loading" id="loading">
+    <div class="loading-text">이미지 무드를 분석하는 중...</div>
+    <div class="loading-step" id="loadingStep">AI가 스타일 키워드를 추출하고 있어요</div>
+  </div>
+  <div class="result-section" id="resultSection">
+    <div class="section-label">02 — 수집된 레퍼런스</div>
+    <div class="mood-title" id="moodTitle"></div>
+    <div class="mood-desc" id="moodDesc"></div>
+    <div class="keywords-row" id="keywordsRow"></div>
+    <div class="ref-grid" id="refGrid"></div>
+    <div class="prompt-box">
+      <div class="prompt-label">✦ AI 렌더링 프롬프트</div>
+      <div class="prompt-text" id="promptText"></div>
+      <button class="copy-btn" id="copyBtn">Copy Prompt</button>
+    </div>
+    <button class="reset-btn" id="resetBtn">↩ 새 이미지로 다시 수집</button>
+  </div>
+</div>
+<script>
+  const UNSPLASH_KEY = 'TwoWgSkPVwPJJUuw8sZj-oYHh3neBt5Etf1qZbj0wjc';
+  const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+  let currentFile = null, currentDataUrl = null, analysisData = null;
+
+  const fileInput = document.getElementById('fileInput');
+  const dropZone = document.getElementById('dropZone');
+  const previewWrap = document.getElementById('previewWrap');
+  const previewImg = document.getElementById('previewImg');
+  const removePreview = document.getElementById('removePreview');
+  const searchBtn = document.getElementById('searchBtn');
+  const loading = document.getElementById('loading');
+  const loadingStep = document.getElementById('loadingStep');
+  const uploadSection = document.getElementById('uploadSection');
+  const resultSection = document.getElementById('resultSection');
+  const errorBox = document.getElementById('errorBox');
+  const resetBtn = document.getElementById('resetBtn');
+  const copyBtn = document.getElementById('copyBtn');
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.background='var(--paper-dark)'; });
+  dropZone.addEventListener('dragleave', () => dropZone.style.background='');
+  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.style.background=''; if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+  fileInput.addEventListener('change', e => { if(e.target.files[0]) loadFile(e.target.files[0]); });
+
+  function loadFile(file) {
+    currentFile = file;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 1024;
+        let w = img.width, h = img.height;
+        if(w>MAX||h>MAX){ if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;} }
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        currentDataUrl = canvas.toDataURL('image/jpeg',0.8);
+        previewImg.src = currentDataUrl;
+        previewWrap.style.display='block';
+        dropZone.style.display='none';
+        searchBtn.disabled=false;
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  removePreview.addEventListener('click', () => {
+    currentFile=null; currentDataUrl=null;
+    previewWrap.style.display='none'; dropZone.style.display='block';
+    searchBtn.disabled=true; fileInput.value='';
+  });
+
+  searchBtn.addEventListener('click', async () => {
+    errorBox.classList.remove('active');
+    uploadSection.style.display='none';
+    loading.classList.add('active');
+    try {
+      loadingStep.textContent='AI가 스타일 키워드를 추출하고 있어요';
+      analysisData = await analyzeImage();
+      loadingStep.textContent='Unsplash에서 비슷한 무드 이미지를 수집하는 중...';
+      const images = await searchUnsplash();
+      loading.classList.remove('active');
+      renderResult(analysisData, images);
+      resultSection.classList.add('active');
+    } catch(err) {
+      loading.classList.remove('active');
+      uploadSection.style.display='block';
+      errorBox.textContent='오류: '+err.message;
+      errorBox.classList.add('active');
+    }
+  });
+
+  async function analyzeImage() {
+    const base64 = currentDataUrl.split(',')[1];
+    const res = await fetch(API_URL+'/analyze', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({imageBase64:base64, mediaType:'image/jpeg'})
+    });
+    if(!res.ok) throw new Error('서버 오류: '+res.status);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    return data;
+  }
+
+  async function searchUnsplash() {
+    const queries = analysisData.searchQueries || [analysisData.searchQuery];
+    const perQuery = Math.ceil(12/queries.length);
+    let all = [];
+    for(const q of queries) {
+      const res = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(q)}&per_page=${perQuery}&orientation=squarish`,{headers:{Authorization:`Client-ID ${UNSPLASH_KEY}`}});
+      const data = await res.json();
+      all = all.concat(data.results||[]);
+    }
+    const seen = new Set();
+    return all.filter(img=>{ if(seen.has(img.id)) return false; seen.add(img.id); return true; }).slice(0,12);
+  }
+
+  function renderResult(d, images) {
+    const words = d.title ? d.title.split(' ') : ['무드'];
+    document.getElementById('moodTitle').innerHTML=`<em>${words[0]}</em>${words.length>1?' '+words.slice(1).join(' '):''}`;
+    document.getElementById('moodDesc').textContent=d.description||'';
+    const kwRow = document.getElementById('keywordsRow');
+    kwRow.innerHTML='';
+    (d.keywords||[]).forEach((kw,i)=>{
+      const tag=document.createElement('span');
+      tag.className='kw-tag'+(i===0?' active':'');
+      tag.textContent=kw;
+      tag.addEventListener('click', async ()=>{
+        kwRow.querySelectorAll('.kw-tag').forEach(t=>t.classList.remove('active'));
+        tag.classList.add('active');
+        const res=await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(kw+' interior')}&per_page=12&orientation=squarish`,{headers:{Authorization:`Client-ID ${UNSPLASH_KEY}`}});
+        const data=await res.json();
+        renderGrid(data.results||[]);
+      });
+      kwRow.appendChild(tag);
+    });
+    renderGrid(images);
+    document.getElementById('promptText').textContent=d.renderPrompt||'';
+    copyBtn.onclick=()=>{ navigator.clipboard.writeText(d.renderPrompt||''); copyBtn.textContent='✓ Copied!'; setTimeout(()=>copyBtn.textContent='Copy Prompt',2000); };
+  }
+
+  function renderGrid(images) {
+    const grid=document.getElementById('refGrid');
+    grid.innerHTML='';
+    images.forEach(img=>{
+      const div=document.createElement('div');
+      div.className='ref-item';
+      div.innerHTML=`<img src="${img.urls.small}" alt="" loading="lazy"><div class="ref-overlay"><span class="ref-author">${img.user.name}</span><button class="ref-save">↓</button></div>`;
+      div.querySelector('img').addEventListener('click',()=>window.open(img.links.html+'?utm_source=hueflow&utm_medium=referral','_blank'));
+      const btn=div.querySelector('.ref-save');
+      btn.addEventListener('click',e=>{ e.stopPropagation(); window.open(img.urls.full,'_blank'); btn.textContent='✓'; btn.classList.add('saved'); });
+      grid.appendChild(div);
+    });
+  }
+
+  resetBtn.addEventListener('click',()=>{
+    currentFile=null; currentDataUrl=null; analysisData=null; fileInput.value='';
+    previewWrap.style.display='none'; dropZone.style.display='block';
+    searchBtn.disabled=true; resultSection.classList.remove('active');
+    uploadSection.style.display='block'; errorBox.classList.remove('active');
+  });
+</script>
+</body>
+</html>
