@@ -1,15 +1,11 @@
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    
-    if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
     
     try {
       const { imageBase64, mediaType } = req.body;
       
-      if (!imageBase64) return res.status(400).json({ error: '이미지가 없어요' });
+      console.log('API KEY exists:', !!process.env.ANTHROPIC_API_KEY);
+      console.log('API KEY prefix:', process.env.ANTHROPIC_API_KEY?.slice(0, 20));
       
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -32,9 +28,11 @@ export default async function handler(req, res) {
       });
       
       const responseText = await response.text();
+      console.log('Anthropic status:', response.status);
+      console.log('Anthropic response:', responseText.slice(0, 300));
       
       if (!response.ok) {
-        return res.status(500).json({ error: `Anthropic API 오류: ${responseText.slice(0, 200)}` });
+        return res.status(500).json({ error: `Anthropic 오류: ${responseText.slice(0, 200)}` });
       }
       
       const data = JSON.parse(responseText);
@@ -46,6 +44,7 @@ export default async function handler(req, res) {
       
       res.json(JSON.parse(match[0]));
     } catch (err) {
+      console.log('Error:', err.message);
       res.status(500).json({ error: err.message });
     }
   }
